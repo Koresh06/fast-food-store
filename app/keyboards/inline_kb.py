@@ -43,31 +43,18 @@ order = InlineKeyboardMarkup(
     ]
 )
 
-#async def bat_product_cart(product_id):
-#    count_product = await check_quantuty(product_id)
-#    builder = InlineKeyboardBuilder([
-#        [
-#            InlineKeyboardButton(text='🔽', callback_data=f'{product_id} minus'),
-#            InlineKeyboardButton(text=f'🛒 {count_product} шт.', callback_data=f'{product_id} count'),
-#            InlineKeyboardButton(text='🔼', callback_data=f'{product_id} plus')
-#        ]
-#    ])
-#    builder.row(InlineKeyboardButton(text='🚫 Удалить', callback_data=f'{product_id}_delete'))
-#    return builder.as_markup()
-
-async def user_cart_product(id_product):
+async def user_cart_product(item):
     builder = InlineKeyboardBuilder()
 
-    for item in id_product:
-        check = await inline_kb_product(item[0])
-        count_product = await check_quantuty(item[0])
-        builder.row(InlineKeyboardButton(text=f'{check[0][0]}', callback_data=f'user_cart {item[0]}'), width=1)
-        builder.row(
-            InlineKeyboardButton(text='🔽', callback_data=f'{item[0]} minus'),
-            InlineKeyboardButton(text=f'🛒 {count_product} шт.', callback_data=f'{item[0]} count'),
-            InlineKeyboardButton(text='🔼', callback_data=f'{item[0]} plus'),
-            InlineKeyboardButton(text='🚫', callback_data=f'{item[0]}_delete'),
-            width=4
+    check = await inline_kb_product(item)
+    count_product = await check_quantuty(item)
+    builder.row(InlineKeyboardButton(text=f'{check[0][0]}', callback_data=f'user_cart {item}'), width=1)
+    builder.row(
+        InlineKeyboardButton(text='🔽', callback_data=f'{item} minus'),
+        InlineKeyboardButton(text=f'🛒 {count_product} шт.', callback_data=f'{item} count'),
+        InlineKeyboardButton(text='🔼', callback_data=f'{item} plus'),
+        InlineKeyboardButton(text='🚫', callback_data=f'{item}_delete'),
+        width=4
 
         )
         
@@ -88,3 +75,17 @@ async def update_in_bt(id_pr):
     )
 
     return builder.as_markup()
+
+
+kb_help = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [InlineKeyboardButton(text='Администратор', url='https://t.me/korets_24')]
+    ]
+)
+
+confirmation_order = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [InlineKeyboardButton(text='✅ Подтвердить', callback_data='cofirm')],
+        [InlineKeyboardButton(text='Очистить корзину', callback_data='delete_cart')]
+    ]
+)

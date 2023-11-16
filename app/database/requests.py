@@ -94,7 +94,6 @@ async def check_user_cart(tg_id):
     
 async def inline_kb_product(id_product):
     async with async_session() as session:
-        print(id_product)
         product_d = await session.execute(select(Product.name).where(Product.id == id_product))
         if product_d:
             return product_d.all()
@@ -111,7 +110,7 @@ async def delete_cart(tg_id, data):
     async with async_session() as session:
         try:
             user_d = await session.scalar(select(Cart).where(Cart.user_id == tg_id))
-            product_item = await session.scalar(select(Product).where(Product.id == int(data[0])))
+            product_item = await session.scalar(select(Product).where(Product.id == data))
             del_item_cart = await session.scalar(select(CartItem).where(CartItem.cart_id == user_d.id, CartItem.product_id == product_item.id))
             await session.delete(del_item_cart)
             await session.commit()

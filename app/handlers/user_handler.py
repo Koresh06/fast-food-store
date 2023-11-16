@@ -4,6 +4,7 @@ from aiogram.filters import CommandStart, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import default_state
 from aiogram.types.input_media_photo import InputMediaPhoto
+from aiogram.methods.delete_message import DeleteMessage
 
 from app.keyboards.reply_kb import *
 from app.keyboards.inline_kb import *
@@ -136,8 +137,11 @@ async def count_quanty(callback: CallbackQuery):
 async def cmd_cart(message: Message):
 
     cart_user = await check_user_cart(message.from_user.id)
+    print(cart_user)
     if cart_user:
-        await message.answer('Ваши товары', reply_markup=await user_cart_product(cart_user))
+        for item in cart_user:
+            await message.answer(text=f'Позиция №{cart_user.index(item) + 1}', reply_markup=await user_cart_product(item[0]))
+        await message.answer('Подтверждение заказа', reply_markup=confirmation_order)
     else:
         await message.answer('Корзина пуста, перейдите в котолог [🍔 Еда] и сделайте свой выбор')
         
@@ -178,10 +182,13 @@ async def cmd_add_cart(callback: CallbackQuery):
 
 @router.callback_query(F.data.endswith('delete'))
 async def delete_product(callback: CallbackQuery):
-    if await delete_cart(callback.from_user.id, callback.data):
+    if await delete_cart(callback.from_user.id, int(callback.data.split('_')[0])):
         await callback.answer(text='Товар удален')
+        await callback.message.delete()
+        await callback.message.delete_reply_markup()
     else:
         await callback.message.answer('Ошибка')
+    
 
 @router.callback_query(F.data == 'update')
 async def update_cart_user(callback: CallbackQuery):
@@ -196,6 +203,10 @@ async def update_cart_user(callback: CallbackQuery):
         await callback.message.answer('Корзина пуста, перейдите в котолог [🍔 Еда] и сделайте свой выбор')
         await callback.answer()
 
+
+@router.message(F.text.endswith('Помощь'))
+async def cmd_help(message: Message):
+    await message.answer('🔸У вас возникли вопросы?\nМы с удовольствием ответим!\n', reply_markup=kb_help)
 
 
 @router.message()
