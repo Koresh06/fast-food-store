@@ -37,7 +37,7 @@ async def cmd_categ_name(message: Message, state: FSMContext):
         await message.answer('✅ Категория добавлена успешно')
         await state.clear()
     else:
-        await message.answer('❌ Данная категория уже была добавлена')
+        await message.answer('🚫 Данная категория уже была добавлена')
         await state.clear()
 
 @admin.callback_query(F.data.startswith('categ_'), StateFilter(default_state))

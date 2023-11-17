@@ -49,12 +49,13 @@ async def reg_first_name(message: Message, state: FSMContext):
         await state.clear()
 
 
-@router.message(F.text.endswith('Еда'))
+@router.message(F.text.endswith('Меню'))
 async def cmd_categories_product(message: Message):
+    await message.answer('Выберите категорию', reply_markup=await kb_menu())
     if await output_categories():
         await message.answer('Категории', reply_markup=await user_categories())
     else:
-        await message.answer('Каталог категорий пуст')
+        await message.answer('Каталог категорий пуст', reply_markup=await kb_menu())
 
 @router.callback_query(F.data == 'bat_categ')
 async def cmd_categ_back(callback: CallbackQuery):
@@ -123,43 +124,89 @@ async def count_quanty(callback: CallbackQuery):
     await callback.answer(text=f'Товар №{current_value} из {categ}', show_alert=True)
     await callback.answer()
 
-#@router.message(F.text.endswith('Корзина'))
-#async def cmt_cart(message: Message):
-#    cart_user = await chek_user_cart(message.from_user.id)
-#    if cart_user:
-#        for item in cart_user:
-#            await message.answer_photo(item[1], caption=f"<b><i>Наименование:</i></b> {item[0]}\n\n<b><i>Описание продукта:</#i></b> {item[2]}\n\n<b><i>Прайс:</i></b> {item[3]} BYN", reply_markup=await bat_product_cart(item[4]))
-#        await message.answer('Для подтверждения заказа нажмите ⬇️', reply_markup=order)
-#    else:
-#        await message.answer('Корзина пуста, перейдите в котолог [🍔 Еда] и сделайте свой выбор')
-
 @router.message(F.text.endswith('Корзина'))
 async def cmd_cart(message: Message):
 
-    cart_user = await check_user_cart(message.from_user.id)
-    print(cart_user)
-    if cart_user:
-        for item in cart_user:
-            await message.answer(text=f'Позиция №{cart_user.index(item) + 1}', reply_markup=await user_cart_product(item[0]))
-        await message.answer('Подтверждение заказа', reply_markup=confirmation_order)
-    else:
-        await message.answer('Корзина пуста, перейдите в котолог [🍔 Еда] и сделайте свой выбор')
+    items = await check_user_cart(message.from_user.id)
+    if items:
+        lst_menu = []
+        for item in items:
+            parser_product_attr = await pars_product(item[0])
+            lst_menu.append(parser_product_attr)
+
+        content = '\n➖➖➖➖➖➖➖➖➖➖➖\n'.join([f"|-🍽 {lst_menu.index(item) + 1}. {item[0][0]}\n|-{item[1]} шт. х {item[0][1]} = {item [1] * item[0][1]} BYN" for item in lst_menu])
+        total_cost = sum([i[1] * i[0][1] for i in lst_menu])
+        name_count_product = [(item[0][0], item[1]) for item in lst_menu]
+
+        await message.answer(text=f'🛒 Ваша корзина:\n\n{content}\n\n💸 ИТОГО: {total_cost} BYN', reply_markup=await kb_menu_cart(name_count_product))
         
+    else:
+        await message.answer('Корзина пуста, перейдите в котолог [📋 Меню] и сделайте свой выбор', reply_markup=await kb_menu())
 
+#Удаление позиций из корзины
+@router.message(F.text.startswith('❌'))
+async def cmd_delete_product(message: Message):
+    name = message.text.split('.')[1]
+    if await count_minus(name):
+        items = await check_user_cart(message.from_user.id)
+        if items:
+            lst_menu = []
+            for item in items:
+                parser_product_attr = await pars_product(item[0])
+                lst_menu.append(parser_product_attr)
 
+            content = '\n➖➖➖➖➖➖➖➖➖➖➖\n'.join([f"|-🍽 {lst_menu.index(item) + 1}. {item[0][0]}\n|-{item[1]} шт. х {item[0][1]} = {item [1] * item[0][1]} BYN" for item in lst_menu])
+            total_cost = sum([i[1] * i[0][1] for i in lst_menu])
+            name_count_product = [(item[0][0], item[1]) for item in lst_menu]
+
+            await message.answer(text=f'🛒 Ваша корзина:\n\n{content}\n\n💸 ИТОГО: {total_cost} BYN', reply_markup=await kb_menu_cart(name_count_product))
+        else:
+            await message.answer('Корзина пуста, перейдите в котолог [📋 Меню] и сделайте свой выбор')
+    else:
+        if await delete_menu_product(name):
+            items = await check_user_cart(message.from_user.id)
+            if items:
+                lst_menu = []
+                for item in items:
+                    parser_product_attr = await pars_product(item[0])
+                    lst_menu.append(parser_product_attr)
+
+                content = '\n➖➖➖➖➖➖➖➖➖➖➖\n'.join([f"|-🍽 {lst_menu.index(item) + 1}. {item[0][0]}\n|-{item[1]} шт. х {item[0][1]} = {item[1] * item[0][1]} BYN" for item in lst_menu])
+                total_cost = sum([i[1] * i[0][1] for i in lst_menu])
+                name_count_product = [(item[0][0], item[1]) for item in lst_menu]
+
+                await message.answer(text=f'🛒 Ваша корзина:\n\n{content}\n\n💸 ИТОГО: {total_cost} BYN', reply_markup=await  kb_menu_cart(name_count_product))
+            else:
+                await message.answer('Корзина пуста, перейдите в котолог [📋 Меню] и сделайте свой выбор', reply_markup=await kb_menu())
+
+@router.message(F.text.endswith('Очистить корзину'))
+async def clear_cart(message: Message):
+    if await clear_cart_pr(message.from_user.id):
+        await message.answer('Команды для работы с ботом 🔽', reply_markup=await kb_menu())
+    else:
+        await message.answer('Ошибка, обратитесь к администратору [🤝 Помощь]')
+    
+
+#Уменьшение количества товара, при попытке уменьшить меньше еденицы товар удаляется из корзины и переход в исходную клаву
 @router.callback_query(F.data.endswith('minus'))
 async def cmd_minus(callback: CallbackQuery):
-    id_pr = int(callback.data.split()[0])
-    if await minus_count_product(id_pr):
-        await callback.message.edit_reply_markup(reply_markup=await update_in_bt(id_pr))
+    id_categ = int(callback.data.split('_')[0])
+    id_product = int(callback.data.split('_')[1])
+    index = int(callback.data.split('_')[2])
+    if await minus_count_product(id_product):
+        await callback.message.edit_reply_markup(reply_markup=await user_cart_product(id_categ, id_product, index))
     else:
-        await callback.answer('Минимальное количество 1 шт.')
+        await delete_cart(callback.from_user.id, id_product)
+        await callback.message.edit_reply_markup(reply_markup=await add_cart(id_categ, id_product, index))
 
+#Добавление количества товара, максимальное количество 10 шт.
 @router.callback_query(F.data.endswith('plus'))
 async def cmd_minus(callback: CallbackQuery):
-    id_pr = int(callback.data.split()[0])
-    if await plus_count_product(id_pr):
-        await callback.message.edit_reply_markup(reply_markup=await update_in_bt(id_pr))
+    id_categ = int(callback.data.split('_')[0])
+    id_product = int(callback.data.split('_')[1])
+    index = int(callback.data.split('_')[2])
+    if await plus_count_product(id_product):
+        await callback.message.edit_reply_markup(reply_markup=await user_cart_product(id_categ, id_product, index))
     else:
         await callback.answer('Максимальное количество 10 шт.')
 
@@ -170,38 +217,31 @@ async def cmd_minus(callback: CallbackQuery):
     await callback.answer()
 
 
-
+#При изменении количества изменяется клава
 @router.callback_query(F.data.endswith('add_cart'))
 async def cmd_add_cart(callback: CallbackQuery):
-    id_categor = int(callback.data.split('_')[0])
-    if await add_cart_product(callback.from_user.id, id_categor):
+    id_categ = int(callback.data.split('_')[0])
+    id_product = int(callback.data.split('_')[1])
+    index = int(callback.data.split('_')[2])
+    if await add_cart_product(callback.from_user.id, id_product):
+        await callback.message.edit_reply_markup(reply_markup=await user_cart_product(id_categ, id_product, index))
         await callback.answer(text='Товар добавлен в корзину')
     else:
         await callback.answer('Товар уже был добавлен в корзину', show_alert=True)
-
-
-@router.callback_query(F.data.endswith('delete'))
-async def delete_product(callback: CallbackQuery):
-    if await delete_cart(callback.from_user.id, int(callback.data.split('_')[0])):
-        await callback.answer(text='Товар удален')
-        await callback.message.delete()
-        await callback.message.delete_reply_markup()
-    else:
-        await callback.message.answer('Ошибка')
     
 
-@router.callback_query(F.data == 'update')
-async def update_cart_user(callback: CallbackQuery):
-    cart_user = await check_user_cart(callback.from_user.id)
-    if cart_user:
-        for item in cart_user:
-            await callback.message.answer_photo(item[1])
-            await callback.message.answer(f"<b><i>Наименование:</i></b> {item[0]}\n\n<b><i>Описание продукта:</i></b> {item[2]}\n\n<b><i>Прайс:</i></b> {item[3]} BYN", reply_markup=await user_cart_product(item[4]))
-        await callback.message.answer('Для подтверждения заказа нажмите ⬇️', reply_markup=order)
-        await callback.answer()
-    else:
-        await callback.message.answer('Корзина пуста, перейдите в котолог [🍔 Еда] и сделайте свой выбор')
-        await callback.answer()
+#@router.callback_query(F.data == 'update')
+#async def update_cart_user(callback: CallbackQuery):
+#    cart_user = await check_user_cart(callback.from_user.id)
+#    if cart_user:
+#        for item in cart_user:
+#            await callback.message.answer_photo(item[1])
+#            await callback.message.answer(f"<b><i>Наименование:</i></b> {item[0]}\n\n<b><i>Описание продукта:</i></b> {item[2]}#\n\n<b><i>Прайс:</i></b> {item[3]} BYN", reply_markup=await user_cart_product(item[4]))
+#        await callback.message.answer('Для подтверждения заказа нажмите ⬇️', reply_markup=order)
+#        await callback.answer()
+#    else:
+#        await callback.message.answer('Корзина пуста, перейдите в котолог [🍔 Еда] и сделайте свой выбор')
+#        await callback.answer()
 
 
 @router.message(F.text.endswith('Помощь'))
