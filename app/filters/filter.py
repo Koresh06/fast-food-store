@@ -10,7 +10,7 @@ class CheckImageFilter(BaseFilter):
         if message.photo:
             return True
         else:
-            await message.answer('Это не изображение, отрпавьте еще раз!')
+            await message.answer('Это не изображение, отправьте еще раз!')
             return False
     
 class IsDigitFilter(BaseFilter):

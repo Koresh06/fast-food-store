@@ -32,7 +32,7 @@ async def kb_menu_cart(params):
     builder = ReplyKeyboardBuilder([
         [
         KeyboardButton(text='📋 Меню'),
-        KeyboardButton(text='🚕 Оформить заказ', request_location=True), 
+        KeyboardButton(text='🚕 Оформить заказ'), 
         ]   
     ])
 
@@ -42,5 +42,11 @@ async def kb_menu_cart(params):
 
     return builder.as_markup(resize_keyboard=True)
 
-
-
+async def location():
+    builder = ReplyKeyboardBuilder([
+        [
+        KeyboardButton(text='Указать адрес доставки вручную'),
+        KeyboardButton(text='📍 Оправить геолокацию', request_location=True)   
+        ]
+    ])
+    return builder.as_markup(resize_keyboard=True, one_time_keyboard=True)

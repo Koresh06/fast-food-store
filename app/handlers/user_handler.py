@@ -1,52 +1,45 @@
-from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery
-from aiogram.filters import CommandStart, StateFilter
+from aiogram import Router, F, types
+from aiogram.types import Message, CallbackQuery, ContentType
+from aiogram.filters import CommandStart, StateFilter, Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import default_state
 from aiogram.types.input_media_photo import InputMediaPhoto
-from aiogram.methods.delete_message import DeleteMessage
+
 
 from app.keyboards.reply_kb import *
 from app.keyboards.inline_kb import *
 from app.database.requests import *
-from app.FSM.fsm import Update_user
+from app.FSM.fsm import Location
+
+import config
 
 router = Router()
 
 
-@router.message(CommandStart(), StateFilter(default_state))
-async def cmd_start(message: Message, state: FSMContext):
+@router.message(CommandStart())
+async def cmd_start(message: Message):
     user = await chek_user(message.from_user.id, message.from_user.first_name)
     if not user:
-        await message.answer('Вас примествует ресторан <b>FAST FOOD STORE</b>\n\nЧтобы оформить Ваш первый заказ, для начала давайте пройдем регистрацию')
-        await message.answer('Укажите своё имя:')
-        await state.set_state(Update_user.first_name)
+        if await add_user(message.from_user.id, message.from_user.first_name):
+            await message.answer('Вас примествует ресторан <b>FAST FOOD STORE</b>\n\n', reply_markup=await kb_menu())
+        else:
+            await message.answer('Ошибка, обратитесь к администратору: https://t.me/korets_24')
     else:
         await message.answer('Доброго времени суток, мы рады Вас приветствать в нашем ресторане <b>FAST FOOD STORE</b>\n\nДля работы с ботом выберите команду и меню ⬇️', reply_markup=await kb_menu())
 
-@router.message(StateFilter(Update_user.first_name))
-async def reg_first_name(message: Message, state: FSMContext):
-    await state.update_data(first_name=message.text)
-    await message.answer('Укажите фамилию:')
-    await state.set_state(Update_user.last_name)
+@router.message(Command(commands='cancel'), StateFilter(default_state))
+async def process_cancel_command(message: Message):
+    await message.answer(
+        text='Вы не заполняете форму, поэтому невозможно воспользоваться данной командой!'
+    )
 
-@router.message(StateFilter(Update_user.last_name))
-async def reg_last_name(message: Message, state: FSMContext):
-    await state.update_data(last_name=message.text)
-    await message.answer('Укажите номер телефона для связи с Вами:')
-    await state.set_state(Update_user.phone_number)
-
-@router.message(StateFilter(Update_user.phone_number))
-async def reg_first_name(message: Message, state: FSMContext):
-    await state.update_data(phone_number=message.text)
-    contact = await state.get_data()
-    if await add_user(message.from_user.id, message.from_user.first_name, contact):
-        await message.answer('✅ Регистрация прошла успешно!')
-        await state.clear()
-        await message.answer('Воспользуйтесь меню для работы с ботом ⤵️', reply_markup=await kb_menu())
-    else:
-        await message.answer('❌ Произошла ошибка')
-        await state.clear()
+@router.message(Command(commands='cancel'), ~StateFilter(default_state))
+async def process_cancel_command_state(message: Message, state: FSMContext):
+    await message.answer(
+        text='Отмена заполнения формы\n\nПри необходимости заполните форму заново'
+    )
+    # Сбрасываем состояние и очищаем данные, полученные внутри состояний
+    await state.clear()
 
 
 @router.message(F.text.endswith('Меню'))
@@ -230,23 +223,59 @@ async def cmd_add_cart(callback: CallbackQuery):
         await callback.answer('Товар уже был добавлен в корзину', show_alert=True)
     
 
-#@router.callback_query(F.data == 'update')
-#async def update_cart_user(callback: CallbackQuery):
-#    cart_user = await check_user_cart(callback.from_user.id)
-#    if cart_user:
-#        for item in cart_user:
-#            await callback.message.answer_photo(item[1])
-#            await callback.message.answer(f"<b><i>Наименование:</i></b> {item[0]}\n\n<b><i>Описание продукта:</i></b> {item[2]}#\n\n<b><i>Прайс:</i></b> {item[3]} BYN", reply_markup=await user_cart_product(item[4]))
-#        await callback.message.answer('Для подтверждения заказа нажмите ⬇️', reply_markup=order)
-#        await callback.answer()
-#    else:
-#        await callback.message.answer('Корзина пуста, перейдите в котолог [🍔 Еда] и сделайте свой выбор')
-#        await callback.answer()
-
-
 @router.message(F.text.endswith('Помощь'))
 async def cmd_help(message: Message):
     await message.answer('🔸У вас возникли вопросы?\nМы с удовольствием ответим!\n', reply_markup=kb_help)
+
+
+#Оплата корзины
+@router.message(F.text.endswith('Оформить заказ'))
+async def place_an_order(message: Message):
+    await message.answer(text='Выберерете пункт меню, для указания адреса доставки:', reply_markup=await location())
+
+@router.message(F.text == 'Указать адрес доставки вручную', StateFilter(default_state))
+async def manual_address(message: Message, state: FSMContext):
+    await message.answer('Укажите улицу:\n\n❌ Отмена - /cancel')
+    await state.set_state(Location.street)
+
+@router.message(StateFilter(Location.street))
+async def user_street(message: Message, state: FSMContext):
+    await state.update_data(street=message.text)
+    await message.answer('Укажите номер дома:\n\n❌ Отмена - /cancel')
+    await state.set_state(Location.house)
+
+@router.message(StateFilter(Location.house))
+async def user_house(message: Message, state: FSMContext):  
+    await state.update_data(house=message.text)
+    await message.answer('Укажите номер квартиры:\n\n❌ Отмена - /cancel')
+    await state.set_state(Location.flat)
+
+@router.message(StateFilter(Location.flat))
+async def user_flat(message: Message, state: FSMContext):
+    await state.update_data(flat=message.text)
+    address = await state.get_data()
+    payment_con = await payment_cart(message.from_user.id)
+    quantity = [item[1] for item in payment_con]
+    content = [await product_name_desc_price(item[0]) for item in payment_con]
+    price = [item[0][1] for item in content]
+    name_prod = [item[0][0] for item in content]
+    desc_name_quantity = dict(zip(name_prod, quantity))
+    total_cost = sum([float(i * quantity[idx])  for idx, i in enumerate(price)])
+    text_desc_address = f'Доставка по адресу: ул.{address["street"]}, д.{address["house"]}, кв.{address["flat"]}'
+    desc_product = '; '.join(f'{key}: {value}шт.' for key, value in desc_name_quantity.items())
+
+    await message.answer_invoice(title=text_desc_address, description=desc_product, payload='month_sub', provider_token=config.TOKEN_YOUCASSA, currency='RUB', start_parameter='test_pay', prices=[{'label': 'Руб', 'amount': f"{total_cost * 100:.2f}"}])
+
+    await state.clear()
+
+@router.pre_checkout_query()
+async def process_pre_checkout_query(pre_checkout: types.PreCheckoutQuery):
+    await pre_checkout.answer(ok=True)
+
+@router.message(F.content_type == ContentType.SUCCESSFUL_PAYMENT)
+async def process_pay(message: Message):
+    if message.successful_payment.invoice_payload == 'month_sub':
+        await message.answer('Товар оплачен!\n\nОжидайте... Адинистратор с Вами свяжеться', reply_markup=await kb_menu())
 
 
 @router.message()

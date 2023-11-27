@@ -16,7 +16,6 @@ async def add_cart(id_categ, id_product, index=0):
 async def user_cart_product(id_categ, id_product, index=0):
     builder = InlineKeyboardBuilder()
 
-    check = await inline_kb_product(id_product)
     count_product = await check_quantuty(id_product)
     count_quant = await count_quantuty(id_categ)
     builder.row(
@@ -54,13 +53,6 @@ non_categor = InlineKeyboardMarkup(
     ]
 )
 
-#order = InlineKeyboardMarkup(
-#    inline_keyboard=[
-#        [InlineKeyboardButton(text='♻️ Обновить корзину', callback_data='update')],
-#        [InlineKeyboardButton(text='Оформить заказ', callback_data='order')]
-#    ]
-#)
-
 
 kb_help = InlineKeyboardMarkup(
     inline_keyboard=[
@@ -68,9 +60,3 @@ kb_help = InlineKeyboardMarkup(
     ]
 )
 
-#confirmation_order = InlineKeyboardMarkup(
-#    inline_keyboard=[
-#        [InlineKeyboardButton(text='✅ Подтвердить', callback_data='cofirm')],
-#        [InlineKeyboardButton(text='Очистить корзину', callback_data='delete_cart')]
-#    ]
-#)

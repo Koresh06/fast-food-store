@@ -16,7 +16,6 @@ async def main():
     bot: Bot = Bot(token=os.getenv('TOKEN'), parse_mode='HTML')
     dp: Dispatcher = Dispatcher()
     
-    dp.message.middleware(Is_Admin())
     dp.include_routers(admin, router)
     
     await bot.delete_webhook(drop_pending_updates=True)

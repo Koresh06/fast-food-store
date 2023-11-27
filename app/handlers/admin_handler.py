@@ -9,13 +9,24 @@ from app.keyboards.inline_kb import categories, non_categor
 from app.database.requests import *
 from app.FSM.fsm import Update_product, Add_categories
 from app.filters.filter import CheckImageFilter, IsDigitFilter
+from app.middlewares.middlewares import Is_Admin
 
 
 admin = Router()
 
+admin.message.middleware(Is_Admin())
+
 @admin.message(Command('admin'), StateFilter(default_state))
 async def cmd_admin(message: Message):
     await message.answer('Привет хозяин', reply_markup=await kb_menu_admin())
+
+@admin.message(Command(commands='cancel'), ~StateFilter(default_state))
+async def process_cancel_command_state(message: Message, state: FSMContext):
+    await message.answer(
+        text='🚫 Отмена заполнения формы\n\nПри необходимости заполните форму заново'
+    )
+    # Сбрасываем состояние и очищаем данные, полученные внутри состояний
+    await state.clear()
     
 @admin.message(F.text.endswith('Добавить товар'))
 async def cmd_add_product(message: Message):
@@ -26,7 +37,7 @@ async def cmd_add_product(message: Message):
 
 @admin.callback_query(F.data == 'add_categor', StateFilter(default_state))
 async def but_add_categ(callback: CallbackQuery, state: FSMContext):
-    await callback.message.answer('Введите название категории:')
+    await callback.message.answer('Введите название категории:\n\n❌ Отмена - /cancel')
     await state.set_state(Add_categories.name)
     await callback.answer()
 
@@ -34,15 +45,15 @@ async def but_add_categ(callback: CallbackQuery, state: FSMContext):
 async def cmd_categ_name(message: Message, state: FSMContext):
     data = await state.update_data(name=message.text)
     if await add_categories(data['name']):
-        await message.answer('✅ Категория добавлена успешно')
+        await message.answer('✅ Категория добавлена успешно\n\n❌ Отмена - /cancel')
         await state.clear()
     else:
-        await message.answer('🚫 Данная категория уже была добавлена')
+        await message.answer('🚫 Данная категория уже была добавлена', reply_markup=await kb_menu_admin())
         await state.clear()
 
 @admin.callback_query(F.data.startswith('categ_'), StateFilter(default_state))
 async def product_categ(callback: CallbackQuery, state: FSMContext):
-    await callback.message.answer('Введите название товара:')
+    await callback.message.answer('Введите название товара:\n\n❌ Отмена - /cancel')
     await state.set_state(Update_product.name)
     await state.update_data(id_categ=int(callback.data[-1]))
     await callback.answer()
@@ -50,19 +61,19 @@ async def product_categ(callback: CallbackQuery, state: FSMContext):
 @admin.message(StateFilter(Update_product.name))
 async def cmd_name_product(message: Message, state: FSMContext):
     await state.update_data(name=message.text)
-    await message.answer('Загрузите изображение товара:')
+    await message.answer('Загрузите изображение товара:\n\n❌ Отмена - /cancel')
     await state.set_state(Update_product.image)
 
 @admin.message(StateFilter(Update_product.image), CheckImageFilter())
 async def cmd_image_product(message: Message, state: FSMContext):
     await state.update_data(image=message.photo[-1].file_id)
-    await message.answer('Введите описание товара:')
+    await message.answer('Введите описание товара:\n\n❌ Отмена - /cancel')
     await state.set_state(Update_product.description)
 
 @admin.message(StateFilter(Update_product.description))
 async def cmd_description_product(messsage: Message, state: FSMContext):
     await state.update_data(description=messsage.text)
-    await messsage.answer('Введите прайс/цену товара:')
+    await messsage.answer('Введите прайс/цену товара:\n\n❌ Отмена - /cancel')
     await state.set_state(Update_product.price)
 
 @admin.message(StateFilter(Update_product.price), IsDigitFilter())

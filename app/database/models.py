@@ -1,9 +1,10 @@
-from sqlalchemy import ForeignKey, String, BigInteger, Float, Integer
+from sqlalchemy import ForeignKey, String, BigInteger, Float, Integer, DateTime, JSON
 from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase, relationship
 from sqlalchemy.ext.asyncio import AsyncAttrs, async_sessionmaker, create_async_engine
 
 from typing import List
 import config
+import datetime
 
 
 engine = create_async_engine(
@@ -23,11 +24,9 @@ class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     tg_id = mapped_column(BigInteger)
     username: Mapped[str] = mapped_column(String())
-    first_name: Mapped[str] = mapped_column(String(), default=None)
-    last_name: Mapped[str] = mapped_column(String(), default=None)
-    phone_number: Mapped[str] = mapped_column(String(), default=None)
 
     cart_user: Mapped[List['Cart']] = relationship(back_populates='user_rel', cascade='all, delete')
+    #order_rel: Mapped[List['Orders']] = relationship(back_populates='user_rel', cascade='all, delete')
 
 class Categories(Base):
     __tablename__ = 'categories'
@@ -51,6 +50,7 @@ class Product(Base):
 
     cartitem_rel: Mapped[List['CartItem']] = relationship(back_populates='product_rel', cascade='all, delete')
     categories_rel: Mapped['Categories'] = relationship(back_populates='product_rel')
+    #order_rel: Mapped['Orders'] = relationship(back_populates='product_rel')
 
 class Cart(Base):
     __tablename__ = 'cart'
@@ -71,6 +71,21 @@ class CartItem(Base):
 
     cart_rel: Mapped['Cart'] = relationship(back_populates='items')
     product_rel: Mapped['Product'] = relationship(back_populates='cartitem_rel')
+    #order_rel: Mapped['Orders'] = relationship(back_populates='cartitem_rel')
+
+#class Orders(Base):
+#    __tablename__ = 'orders'
+#
+#    id: Mapped[int] = mapped_column(primary_key=True)
+#    user_id: Mapped[int] = mapped_column(ForeignKey('user.id', ondelete='CASCADE'))
+#    data_time: Mapped[str] = mapped_column(DateTime, default=datetime.datetime.utcnow())
+#    address: Mapped[str] = mapped_column(String())
+#    order: Mapped[dict] = mapped_column(JSON())
+#
+#    user_rel: Mapped['User'] = relationship(back_populates='order_rel')
+#    product_rel: Mapped['Product'] = relationship(back_populates='order_rel')
+#    cartitem_rel: Mapped['CartItem'] = relationship(back_populates='order_rel')
+
 
 
 async def async_main():

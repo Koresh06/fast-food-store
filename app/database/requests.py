@@ -11,14 +11,15 @@ async def chek_user(tg_id, username):
         
         return True
     
-async def add_user(tg_id, username, contact: dict):
+async def add_user(tg_id, username):
     async with async_session() as session:
         try:
-            session.add(User(tg_id=tg_id, username=username, first_name=contact['first_name'], last_name=contact['last_name'], phone_number=contact['phone_number']))
+            session.add(User(tg_id=tg_id, username=username))
             session.add(Cart(user_id=tg_id))
             await session.commit()
             return True
-        except:
+        except Exception() as exxit:
+            print(exxit)
             return False
         
 async def output_categories():
@@ -185,3 +186,20 @@ async def plus_count_product(id_product):
             await session.commit()
             return True
         return False
+    
+#Сбор id_product и количества товара для оплаты
+async def payment_cart(tg_id):
+    async with async_session() as session:
+        try:
+            cart_d = await session.scalar(select(Cart).where(Cart.user_id == tg_id))
+            cartitem_d = await session.execute(select(CartItem.product_id, CartItem.quantuty).where(CartItem.cart_id == cart_d.id))
+            return cartitem_d.all()
+        except Exception() as exxit:
+            print(exxit)
+            return False
+
+#Название, описание и прайс
+async def product_name_desc_price(id_pord):
+    async with async_session() as session:
+        product_d = await session.execute(select(Product.name, Product.price).where(Product.id == id_pord))
+    return product_d.all()
