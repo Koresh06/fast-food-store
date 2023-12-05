@@ -9,7 +9,7 @@ from aiogram.types.input_media_photo import InputMediaPhoto
 from app.keyboards.reply_kb import *
 from app.keyboards.inline_kb import *
 from app.database.requests import *
-from app.FSM.fsm import Location
+from app.FSM.fsm import Location1, Location2
 
 import config
 
@@ -231,27 +231,29 @@ async def cmd_help(message: Message):
 #Оплата корзины
 @router.message(F.text.endswith('Оформить заказ'))
 async def place_an_order(message: Message):
-    await message.answer(text='Выберерете пункт меню, для указания адреса доставки:', reply_markup=await location())
+    await message.answer(text='Выберете пункт меню:', reply_markup=payment_kb)
 
-@router.message(F.text == 'Указать адрес доставки вручную', StateFilter(default_state))
-async def manual_address(message: Message, state: FSMContext):
-    await message.answer('Укажите улицу:\n\n❌ Отмена - /cancel')
-    await state.set_state(Location.street)
+@router.callback_query(StateFilter(default_state), F.data == 'order1')
+async def manual_address(callback: CallbackQuery, state: FSMContext):
+    await callback.message.delete()
+    await callback.message.answer('Укажите улицу:\n\n❌ Отмена - /cancel')
+    await state.set_state(Location1.street)
+    await callback.answer()
 
-@router.message(StateFilter(Location.street))
+@router.message(StateFilter(Location1.street))
 async def user_street(message: Message, state: FSMContext):
     await state.update_data(street=message.text)
     await message.answer('Укажите номер дома:\n\n❌ Отмена - /cancel')
-    await state.set_state(Location.house)
+    await state.set_state(Location1.house)
 
-@router.message(StateFilter(Location.house))
+@router.message(StateFilter(Location1.house))
 async def user_house(message: Message, state: FSMContext):  
     await state.update_data(house=message.text)
     await message.answer('Укажите номер квартиры:\n\n❌ Отмена - /cancel')
-    await state.set_state(Location.flat)
+    await state.set_state(Location1.flat)
 
-@router.message(StateFilter(Location.flat))
-async def user_flat(message: Message, state: FSMContext):
+@router.message(StateFilter(Location1.flat))
+async def payment_by_card(message: Message, state: FSMContext):
     await state.update_data(flat=message.text)
     address = await state.get_data()
     payment_con = await payment_cart(message.from_user.id)
@@ -261,12 +263,74 @@ async def user_flat(message: Message, state: FSMContext):
     name_prod = [item[0][0] for item in content]
     desc_name_quantity = dict(zip(name_prod, quantity))
     total_cost = sum([float(i * quantity[idx])  for idx, i in enumerate(price)])
+    address_d = f'{address["street"]}/{address["house"]}/{address["flat"]}'
     text_desc_address = f'Доставка по адресу: ул.{address["street"]}, д.{address["house"]}, кв.{address["flat"]}'
     desc_product = '; '.join(f'{key}: {value}шт.' for key, value in desc_name_quantity.items())
 
-    await message.answer_invoice(title=text_desc_address, description=desc_product, payload='month_sub', provider_token=config.TOKEN_YOUCASSA, currency='RUB', start_parameter='test_pay', prices=[{'label': 'Руб', 'amount': f"{total_cost * 100:.2f}"}])
+    #Сохранение в БД заказа
+    try:
+        await save_order(message.from_user.id, address_d, desc_name_quantity)
+    except Exception as ex:
+        price(ex)
+    finally:
+        await state.clear()
+
+    id_tovar = await tovar_last(message.from_user.id)
+    data_id = int(id_tovar[-1][0])
+
+    await message.answer('Тестовая карта\n\nНомер карты: 1111 1111 1111 1026\nММ/ГГ: 12/22\nCVC: 000\n\nДанная карта предназначена только для тестирования платежной системы!')
+
+    await message.answer_invoice(title=text_desc_address, description=desc_product, payload=f'month_sub_{data_id}', provider_token=config.TOKEN_YOUCASSA, currency='RUB', start_parameter='test_pay', prices=[{'label': 'Руб', 'amount': f"{total_cost * 100:.2f}"}])
+
 
     await state.clear()
+
+@router.callback_query(StateFilter(default_state), F.data == 'order2')
+async def manual_address(callback: CallbackQuery, state: FSMContext):
+    await callback.message.delete()
+    await callback.message.answer('Укажите улицу:\n\n❌ Отмена - /cancel')
+    await state.set_state(Location2.street)
+    await callback.answer()
+
+@router.message(StateFilter(Location2.street))
+async def user_street(message: Message, state: FSMContext):
+    await state.update_data(street=message.text)
+    await message.answer('Укажите номер дома:\n\n❌ Отмена - /cancel')
+    await state.set_state(Location2.house)
+
+@router.message(StateFilter(Location2.house))
+async def user_house(message: Message, state: FSMContext):  
+    await state.update_data(house=message.text)
+    await message.answer('Укажите номер квартиры:\n\n❌ Отмена - /cancel')
+    await state.set_state(Location2.flat)
+
+@router.message(StateFilter(Location2.flat))
+async def payment_after_receipt(message: Message, state: FSMContext):
+    await state.update_data(flat=message.text)
+    address = await state.get_data()
+    payment_con = await payment_cart(message.from_user.id)
+    quantity = [item[1] for item in payment_con]
+    content = [await product_name_desc_price(item[0]) for item in payment_con]
+    price = [item[0][1] for item in content]
+    name_prod = [item[0][0] for item in content]
+    desc_name_quantity = dict(zip(name_prod, quantity))
+    total_cost = sum([float(i * quantity[idx])  for idx, i in enumerate(price)])
+    address_d = f'{address["street"]}/{address["house"]}/{address["flat"]}'
+    text_desc_address = f'Доставка по адресу: ул.{address["street"]}, д.{address["house"]}, кв.{address["flat"]}'
+    desc_product = '; '.join(f'{key}: {value}шт.' for key, value in desc_name_quantity.items())
+
+    await message.answer(desc_product)
+
+    #Сохранение в БД заказа
+    try:
+        await save_order(message.from_user.id, address_d, desc_name_quantity)
+    except Exception as ex:
+        price(ex)
+    finally:
+        await state.clear()
+
+    await state.clear()
+    await message.answer('Товар оформлем!\n\nОжидайте... Адинистратор с Вами свяжеться', reply_markup=await kb_menu())
 
 @router.pre_checkout_query()
 async def process_pre_checkout_query(pre_checkout: types.PreCheckoutQuery):
@@ -274,8 +338,10 @@ async def process_pre_checkout_query(pre_checkout: types.PreCheckoutQuery):
 
 @router.message(F.content_type == ContentType.SUCCESSFUL_PAYMENT)
 async def process_pay(message: Message):
-    if message.successful_payment.invoice_payload == 'month_sub':
-        await message.answer('Товар оплачен!\n\nОжидайте... Адинистратор с Вами свяжеться', reply_markup=await kb_menu())
+    if message.successful_payment.invoice_payload.startswith('month_sub'):
+        id_ = message.successful_payment.invoice_payload.split('_')[-1]
+        await payment_confirmation(message.from_user.id, int(id_))
+        await message.answer('Товар оформлен и оплачен!\n\nОжидайте... Адинистратор с Вами свяжеться', reply_markup=await kb_menu())
 
 
 @router.message()

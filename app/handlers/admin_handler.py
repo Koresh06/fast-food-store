@@ -5,7 +5,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import default_state
 
 from app.keyboards.reply_kb import kb_menu_admin
-from app.keyboards.inline_kb import categories, non_categor
+from app.keyboards.inline_kb import categories, non_categor, users_inline_buttons
 from app.database.requests import *
 from app.FSM.fsm import Update_product, Add_categories
 from app.filters.filter import CheckImageFilter, IsDigitFilter
@@ -88,3 +88,10 @@ async def cmd_price_product(message: Message, state: FSMContext):
     else:
         await message.answer('❌ Произошла ошибка')
         await state.clear()
+
+@admin.message(F.text.endswith('Пользователи'))
+async def settings_admin(message: Message):
+    if await users():
+        await message.answer(text='👑 Пользователи', reply_markup=await users_inline_buttons())
+    else:
+        await message.answer('Пользователи отсутствуют')

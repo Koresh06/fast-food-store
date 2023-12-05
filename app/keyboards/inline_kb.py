@@ -60,3 +60,20 @@ kb_help = InlineKeyboardMarkup(
     ]
 )
 
+payment_kb= InlineKeyboardMarkup(
+    inline_keyboard=[
+        [InlineKeyboardButton(text='💳 Оплатить сейчас', callback_data='order1')],
+        [InlineKeyboardButton(text='🎁 Оплатить после получения заказа', callback_data='order2')]
+    ]
+)
+
+async def users_inline_buttons():
+    but = await users()
+    
+    builder = InlineKeyboardBuilder()
+    for item in but:
+        builder.add(InlineKeyboardButton(text=item[0], url=f'tg://user?id={item[1]}'))
+    builder.adjust(1)
+    return builder.as_markup()
+
+

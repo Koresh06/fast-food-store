@@ -14,9 +14,15 @@ class OutputProduct(StatesGroup):
     categor_id = State()
     product_index = State()
 
-class Location(StatesGroup):
+class Location1(StatesGroup):
     street = State()
     house = State()
     flat = State()
+
+class Location2(StatesGroup):
+    street = State()
+    house = State()
+    flat = State()
+
 
 

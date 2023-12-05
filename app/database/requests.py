@@ -1,5 +1,5 @@
 from app.database.models import async_session
-from app.database.models import User, Cart, CartItem, Product, Categories
+from app.database.models import User, Cart, CartItem, Product, Categories, Orders
 from sqlalchemy import select, update, delete
 
 
@@ -71,18 +71,6 @@ async def add_cart_product(tg_id, id_categ):
         else: 
             return False
 
-#async def check_user_cart(tg_id):
-#    async with async_session() as session:
-#        user_d = await session.scalar(select(Cart).where(Cart.user_id == tg_id))
-#        cartitem_d = await session.scalars(select(CartItem.product_id).where(CartItem.cart_id == user_d.id))
-#        cart_user = []
-#        if cartitem_d:
-#            for item in cartitem_d.all():
-#                product = await session.execute(select(Product.name, Product.image, Product.description, Product.price, #Product.id).where (Product.id == item))
-#                cart_user.append(next(product))
-#            return cart_user
-#        else:
-#            False
 
 async def check_user_cart(tg_id):
     async with async_session() as session:
@@ -203,3 +191,37 @@ async def product_name_desc_price(id_pord):
     async with async_session() as session:
         product_d = await session.execute(select(Product.name, Product.price).where(Product.id == id_pord))
     return product_d.all()
+
+#Оплата при получениия
+async def save_order(tg_id: int, address: str, content: dict):
+    async with async_session() as session:
+        user_d = await session.scalar(select(User).where(User.tg_id == tg_id))
+        cart_d = await session.scalar(select(Cart).where(Cart.user_id == tg_id))
+        session.add(Orders(user_id=user_d.id, cart_id=cart_d.id, address=address, order=content))
+        await session.commit()
+
+#Подтверждение оплаты с карты
+async def payment_confirmation(tg_id, id_):
+    async with async_session() as session:
+        await session.execute(update(Orders).where(Orders.id == id_).values(payment=1))
+        await session.commit()
+
+#Послдений товар оплаченный картой
+async def tovar_last(tg_id):
+    async with async_session() as session:
+        user_d = await session.scalar(select(User).where(User.tg_id == tg_id))
+        cart_d = await session.scalar(select(Cart).where(Cart.user_id == tg_id))
+        content = await session.execute(select(Orders.id).where(Orders.user_id == user_d.id, Orders.cart_id == cart_d.id))
+        if content:
+            return content.all()
+        return False
+    
+#Получение списка пользователей
+async def users():
+    async with async_session() as session:
+        users_d = await session.execute(select(User.username, User.tg_id))
+        if users_d:
+            return users_d.all()
+        return False
+
+

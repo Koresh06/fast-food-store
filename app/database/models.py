@@ -26,7 +26,7 @@ class User(Base):
     username: Mapped[str] = mapped_column(String())
 
     cart_user: Mapped[List['Cart']] = relationship(back_populates='user_rel', cascade='all, delete')
-    #order_rel: Mapped[List['Orders']] = relationship(back_populates='user_rel', cascade='all, delete')
+    order_rel: Mapped[List['Orders']] = relationship(back_populates='user_rel', cascade='all, delete')
 
 class Categories(Base):
     __tablename__ = 'categories'
@@ -50,7 +50,7 @@ class Product(Base):
 
     cartitem_rel: Mapped[List['CartItem']] = relationship(back_populates='product_rel', cascade='all, delete')
     categories_rel: Mapped['Categories'] = relationship(back_populates='product_rel')
-    #order_rel: Mapped['Orders'] = relationship(back_populates='product_rel')
+   
 
 class Cart(Base):
     __tablename__ = 'cart'
@@ -60,6 +60,7 @@ class Cart(Base):
 
     user_rel: Mapped['User'] = relationship(back_populates='cart_user')
     items: Mapped[List['CartItem']] = relationship(back_populates='cart_rel', cascade='all, delete')
+    order_rel: Mapped['Orders'] = relationship(back_populates='cart_rel')
 
 class CartItem(Base):
     __tablename__ = 'cartitem'
@@ -71,20 +72,21 @@ class CartItem(Base):
 
     cart_rel: Mapped['Cart'] = relationship(back_populates='items')
     product_rel: Mapped['Product'] = relationship(back_populates='cartitem_rel')
-    #order_rel: Mapped['Orders'] = relationship(back_populates='cartitem_rel')
+    
 
-#class Orders(Base):
-#    __tablename__ = 'orders'
-#
-#    id: Mapped[int] = mapped_column(primary_key=True)
-#    user_id: Mapped[int] = mapped_column(ForeignKey('user.id', ondelete='CASCADE'))
-#    data_time: Mapped[str] = mapped_column(DateTime, default=datetime.datetime.utcnow())
-#    address: Mapped[str] = mapped_column(String())
-#    order: Mapped[dict] = mapped_column(JSON())
-#
-#    user_rel: Mapped['User'] = relationship(back_populates='order_rel')
-#    product_rel: Mapped['Product'] = relationship(back_populates='order_rel')
-#    cartitem_rel: Mapped['CartItem'] = relationship(back_populates='order_rel')
+class Orders(Base):
+    __tablename__ = 'orders'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey('user.id', ondelete='CASCADE'))
+    cart_id: Mapped[int] = mapped_column(ForeignKey('cart.id', ondelete='CASCADE'))
+    data_time: Mapped[str] = mapped_column(DateTime, default=datetime.datetime.utcnow())
+    address: Mapped[str] = mapped_column(String())
+    order: Mapped[dict] = mapped_column(JSON())
+    payment: Mapped[bool] = mapped_column(default=False)
+
+    user_rel: Mapped['User'] = relationship(back_populates='order_rel')
+    cart_rel: Mapped['Cart'] = relationship(back_populates='order_rel')
 
 
 

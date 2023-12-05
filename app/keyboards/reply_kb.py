@@ -40,13 +40,14 @@ async def kb_menu_cart(params):
         builder.row(KeyboardButton(text=f'❌ {params.index(item) + 1}. {item[0].strip()}. {item[1]} шт.'))
     builder.row(KeyboardButton(text='❎ Очистить корзину'))
 
-    return builder.as_markup(resize_keyboard=True)
+    return builder.as_markup(resize_keyboard=True, one_time_keyboard=True)
 
 async def location():
     builder = ReplyKeyboardBuilder([
         [
-        KeyboardButton(text='Указать адрес доставки вручную'),
+        KeyboardButton(text='💳 Оплатить сейчас'),
         KeyboardButton(text='📍 Оправить геолокацию', request_location=True)   
         ]
     ])
     return builder.as_markup(resize_keyboard=True, one_time_keyboard=True)
+
