@@ -175,7 +175,7 @@ async def cmd_delete_product(message: Message):
 @router.message(F.text.endswith('Очистить корзину'))
 async def clear_cart(message: Message):
     if await clear_cart_pr(message.from_user.id):
-        await message.answer('Команды для работы с ботом 🔽', reply_markup=await kb_menu())
+        await message.answer('Корзина очищена, для пополнения переёдите в 📋 Меню)', reply_markup=await kb_menu())
     else:
         await message.answer('Ошибка, обратитесь к администратору [🤝 Помощь]')
     
