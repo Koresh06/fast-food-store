@@ -1,6 +1,7 @@
 from sqlalchemy import ForeignKey, String, BigInteger, Float, Integer, DateTime, JSON
 from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase, relationship
 from sqlalchemy.ext.asyncio import AsyncAttrs, async_sessionmaker, create_async_engine
+from sqlalchemy.sql import func
 
 from typing import List
 import config
@@ -80,10 +81,15 @@ class Orders(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey('user.id', ondelete='CASCADE'))
     cart_id: Mapped[int] = mapped_column(ForeignKey('cart.id', ondelete='CASCADE'))
-    data_time: Mapped[str] = mapped_column(DateTime, default=datetime.datetime.utcnow())
+    data_time: Mapped[str] = mapped_column()
     address: Mapped[str] = mapped_column(String())
     order: Mapped[dict] = mapped_column(JSON())
+    total_cost: Mapped[float] = mapped_column(Float())
     payment: Mapped[bool] = mapped_column(default=False)
+    state_1: Mapped[str] = mapped_column(default='-')
+    state_2: Mapped[str] = mapped_column(default='-')
+    state_3: Mapped[str] = mapped_column(default='-')
+    delete: Mapped[bool] = mapped_column(default=True)
 
     user_rel: Mapped['User'] = relationship(back_populates='order_rel')
     cart_rel: Mapped['Cart'] = relationship(back_populates='order_rel')

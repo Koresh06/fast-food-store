@@ -53,7 +53,6 @@ non_categor = InlineKeyboardMarkup(
     ]
 )
 
-
 kb_help = InlineKeyboardMarkup(
     inline_keyboard=[
         [InlineKeyboardButton(text='Администратор', url='https://t.me/korets_24')]
@@ -76,4 +75,62 @@ async def users_inline_buttons():
     builder.adjust(1)
     return builder.as_markup()
 
+async def kb_my_orders(content):
+    builder = InlineKeyboardBuilder()
 
+    for item in content.all():
+        if item[2]:
+            builder.add(InlineKeyboardButton(text=f'{item[1]} ---- 🟢', callback_data=f'ordders_{item[-1]}_{str(item[0])}'))
+        else:
+            builder.add(InlineKeyboardButton(text=f'{item[1]} ---- 🔴', callback_data=f'ordders_{item[-1]}_{str(item[0])}'))
+    builder.adjust(1)
+    return builder.as_markup()
+
+async def new_user(tg_id, first_name):
+    builder = InlineKeyboardBuilder()
+
+    builder.add(InlineKeyboardButton(text=f'{first_name}',url=f'tg://user?id={tg_id}'))
+    return builder.as_markup()
+
+async def one_pos_order(id_ord, payment, user_id):
+    builder = InlineKeyboardBuilder()
+
+    if not payment:
+        builder.add(InlineKeyboardButton(text='💸 Оплатить', callback_data=f'pay_{id_ord}'))
+    builder.add(InlineKeyboardButton(text='⬅️ Назад', callback_data=f'cancle-order_{user_id}'))
+    builder.adjust(1)
+    return builder.as_markup()
+
+async def kb_state_1(index, tg_id):
+    builder = InlineKeyboardBuilder()
+
+    builder.add(InlineKeyboardButton(text='Принять заказ', callback_data=f'state1_{index}_{tg_id}'))
+    builder.add(InlineKeyboardButton(text='Отклонить', callback_data=f'del_{index}_{tg_id}'))
+
+    return builder.as_markup()
+
+async def admin_orders():
+    builder = InlineKeyboardBuilder()
+
+    builder.row(
+        InlineKeyboardButton(text='Ожидают принятия', callback_data='1_ordstate'),
+        InlineKeyboardButton(text='Готовятся', callback_data='1_ordstate'),
+        InlineKeyboardButton(text='Доставка', callback_data='1_ordstate')
+    )
+    builder.adjust(1)
+    return builder.as_markup()
+
+async def state1_admin(id: int, tg_id: int, lenght: int, index=0):
+    builder = InlineKeyboardBuilder()
+
+    builder.add(InlineKeyboardButton(text='Принять заказ', callback_data=f'1_state_admin_{id}_{tg_id}'))
+    builder.add(InlineKeyboardButton(text='Отклонить', callback_data=f'del_{id}_{tg_id}'))
+    builder.adjust(1)
+    if lenght > 1:
+        builder.row(
+            InlineKeyboardButton(text='« Назад', callback_data=f'admin_back_{id}_{index}'),
+            InlineKeyboardButton(text='Вперед »', callback_data=f'admin_forward_{id}_{index}')
+        )
+    builder.row(InlineKeyboardButton(text='⬅️', callback_data='cancle_state'))
+
+    return builder.as_markup()

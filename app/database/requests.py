@@ -1,6 +1,7 @@
 from app.database.models import async_session
 from app.database.models import User, Cart, CartItem, Product, Categories, Orders
 from sqlalchemy import select, update, delete
+import datetime
 
 
 async def chek_user(tg_id, username):
@@ -18,7 +19,7 @@ async def add_user(tg_id, username):
             session.add(Cart(user_id=tg_id))
             await session.commit()
             return True
-        except Exception() as exxit:
+        except Exception as exxit:
             print(exxit)
             return False
         
@@ -125,16 +126,16 @@ async def count_minus(name):
     
 async def clear_cart_pr(tg_id):
     async with async_session() as session:
-        #try:
+        try:
             user_d = await session.scalar(select(Cart).where(Cart.user_id == tg_id))
             clear_d = await session.scalars(select(CartItem).where(CartItem.cart_id == user_d.id))
             for clear in clear_d:
                 await session.delete(clear)
             await session.commit()
             return True
-        #except:
-            #return False
-
+        except Exception as ex:
+            print(ex)
+            return False
 
 
 async def delete_menu_product(name):
@@ -145,7 +146,8 @@ async def delete_menu_product(name):
             await session.delete(del_pr)
             await session.commit()
             return True
-        except:
+        except Exception as ex:
+            print(ex)
             return False
 
 
@@ -182,7 +184,7 @@ async def payment_cart(tg_id):
             cart_d = await session.scalar(select(Cart).where(Cart.user_id == tg_id))
             cartitem_d = await session.execute(select(CartItem.product_id, CartItem.quantuty).where(CartItem.cart_id == cart_d.id))
             return cartitem_d.all()
-        except Exception() as exxit:
+        except Exception as exxit:
             print(exxit)
             return False
 
@@ -193,11 +195,11 @@ async def product_name_desc_price(id_pord):
     return product_d.all()
 
 #Оплата при получениия
-async def save_order(tg_id: int, address: str, content: dict):
+async def save_order(tg_id: int, address: str, content: dict, cost: float):
     async with async_session() as session:
         user_d = await session.scalar(select(User).where(User.tg_id == tg_id))
         cart_d = await session.scalar(select(Cart).where(Cart.user_id == tg_id))
-        session.add(Orders(user_id=user_d.id, cart_id=cart_d.id, address=address, order=content))
+        session.add(Orders(user_id=user_d.id, cart_id=cart_d.id, data_time=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), address=address, order=content, total_cost=float(cost)))
         await session.commit()
 
 #Подтверждение оплаты с карты
@@ -224,4 +226,75 @@ async def users():
             return users_d.all()
         return False
 
+
+#Список заказов из БД
+async def lst_my_orders(tg_id):
+    async with async_session() as session:
+        user_d = await session.scalar(select(User).where(User.tg_id == tg_id))
+        orders = await session.execute(select(Orders.id, Orders.data_time, Orders.payment, Orders.user_id).where(Orders.user_id == user_d.id))
+        if not orders:
+            return False
+        return orders
+    
+#Cancle
+async def cancle_my_orders(user_id):
+    async with async_session() as session:
+        orders = await session.execute(select(Orders.id, Orders.data_time, Orders.payment, Orders.user_id).where(Orders.user_id == user_id))
+        if not orders:
+            return False
+        return orders
+
+#Описание заказа
+async def desc_order(id_ord):
+    async with async_session() as session:
+        order = await session.execute(select(Orders.id, Orders.data_time, Orders.address, Orders.order, Orders.total_cost, Orders.payment).where(Orders.id == id_ord))
+    return order.all()
+
+async def pay_content(id_):
+    async with async_session() as session:
+        con = await session.execute(select(Orders.address, Orders.order, Orders.total_cost).where(Orders.id == id_))
+    return con.all()[0]
+
+async def flag_payment(ord_id):
+    async with async_session() as session:
+        if await session.execute(update(Orders).where(Orders.id == ord_id).values(payment=1)):
+            await session.commit()
+            return True
+        return False
+    
+#Последний заказ
+async def last_order(tg_id):
+    async with async_session() as session:
+        user_d = await session.scalar(select(User).where(User.tg_id == tg_id))
+        orders_d = await session.execute(select(Orders.id).where(Orders.user_id == user_d.id))
+    return orders_d
+
+async def state1_order(index):
+    async with async_session() as session:
+        if await session.execute(update(Orders).where(Orders.id == index).values(state_1='+')):
+            await session.commit()
+            return True
+        return False
+    
+async def tg_id_username(id):
+    async with async_session() as session:
+        tg_id = await session.scalar(select(User.tg_id).where(User.id == id))
+        username = await session.scalar(select(User.username).where(User.id == id))
+    return tg_id, username
+
+async def ordstate_1():
+    async with async_session() as session:
+        orders = await session.execute(select(Orders.id, Orders.user_id, Orders.data_time, Orders.order, Orders.total_cost, Orders.payment).where(Orders.state_1 == '-'))
+    return orders.all()
+
+async def delete_orders(id):
+    async with async_session() as session:
+        try:
+            order = await session.scalar(select(Orders).where(Orders.id == id))
+            await session.delete(order)
+            await session.commit()
+            return True
+        except Exception() as ex:
+            print(ex)
+            return False
 

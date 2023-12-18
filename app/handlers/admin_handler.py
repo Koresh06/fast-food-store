@@ -5,11 +5,13 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import default_state
 
 from app.keyboards.reply_kb import kb_menu_admin
-from app.keyboards.inline_kb import categories, non_categor, users_inline_buttons
+from app.keyboards.inline_kb import *
 from app.database.requests import *
 from app.FSM.fsm import Update_product, Add_categories
 from app.filters.filter import CheckImageFilter, IsDigitFilter
 from app.middlewares.middlewares import Is_Admin
+
+import copy
 
 
 admin = Router()
@@ -89,9 +91,100 @@ async def cmd_price_product(message: Message, state: FSMContext):
         await message.answer('❌ Произошла ошибка')
         await state.clear()
 
+@admin.message(F.text.endswith('Заказы'))
+async def admin_state_cmd(message: Message):
+    await message.answer('Состояния заказов', reply_markup=await admin_orders())
+
+@admin.callback_query(F.data == 'cancle_state')
+async def admin_state_cmd(callback: CallbackQuery):
+    await callback.message.edit_text('Состояния заказов', reply_markup=await admin_orders())
+
+@admin.callback_query(F.data.startswith('1_ordstate'))
+async def state_cmd(callback: CallbackQuery):
+    state = int(callback.data.split("_")[0])
+    try:
+        if state == 1:
+            order = await ordstate_1()
+            user = await tg_id_username(order[0][1])
+            pos = '\n'.join([f'{k}: {v} шт.' for k, v in order[0][3].items()])
+            await callback.message.edit_text(f'Новый заказ от {user[1]}\n\n{order[0][2]}\n\n{pos}\n\n💸ОБЩАЯСТОИМОСТЬ: {order[0][4]} RUB\n\n♻️СТАТУС ОПЛАТЫ: {"✅" if order[0][5] else "❌"}', reply_markup=await state1_admin(order[0][0], user[0], len(order)))
+        elif state == 2:
+            pass
+        elif state == 3:
+            pass
+    except Exception as ex:
+        print(ex)
+
+@admin.callback_query(F.data.startswith('admin_'))
+async def adminback_cmd(callback: CallbackQuery):
+    cmd = callback.data.split('_')[1]
+    index = int(callback.data.split('_')[-1])
+    order = await ordstate_1()
+    try:
+        if cmd == 'back':
+            if index > 0:
+                index -= 1
+                user = await tg_id_username(order[index][1])
+                pos = '\n'.join([f'{k}: {v} шт.' for k, v in order[index][3].   items()])
+                await callback.message.edit_text(f'Новый заказ от {user[1]}\n\n{order[index][2]}\n\n{pos}\n\n💸 ОБЩАЯ СТОИМОСТЬ: {order [index][4]} RUB\n\n♻️ СТАТУС ОПЛАТЫ: {"✅" if order[index][5] else "❌"}', reply_markup= await state1_admin(order[index][0], user[0], len(order), index))
+            else:
+                user = await tg_id_username(order[-1][1])
+                pos = '\n'.join([f'{k}: {v} шт.' for k, v in order[-1][3].  items()])
+                await callback.message.edit_text(f'Новый заказ от {user[1]}\n\n{order[-1][2]}\n\n{pos}\n\n💸 ОБЩАЯ СТОИМОСТЬ: {order[-1]    [4]} RUB\n\n♻️ СТАТУС ОПЛАТЫ: {"✅" if order[-1][5] else "❌"}', reply_markup= await state1_admin(order[-1][0], user[0], len(order), len(order) - 1))
+        elif cmd == 'forward':
+            if index < len(order) - 1:
+                index += 1
+                user = await tg_id_username(order[index][1])
+                pos = '\n'.join([f'{k}: {v} шт.' for k, v in order[index][3].items()])
+                await callback.message.edit_text(f'Новый заказ от {user[1]}\n\n{order[index][2]}\n\n{pos}\n\n💸 ОБЩАЯ СТОИМОСТЬ: {order [index][4]} RUB\n\n♻️ СТАТУС ОПЛАТЫ: {"✅" if order[index][5]else "❌"}', reply_markup= await state1_admin(order[index][0], user[0], len(order), index))
+            else:
+                user = await tg_id_username(order[0][1])
+                pos = '\n'.join([f'{k}: {v} шт.' for k, v in order[0][3].items()])
+                await callback.message.edit_text(f'Новый заказ от {user[1]}\n\n{order[0][2]}\n\n{pos}\n\n💸 ОБЩАЯ СТОИМОСТЬ: {order[0][4]} RUB\n\n♻️ СТАТУС ОПЛАТЫ: {"✅" if order[0][5] else "❌"}', reply_markup= await state1_admin(order[0][0], user[0], len(order)))
+    except Exception as ex:
+        print(ex)
+
+
+@admin.callback_query(F.data.startswith('state1'))
+async def state1_cmd(callback: CallbackQuery):
+    index = int(callback.data.split('_')[-2])
+    tg_id = int(callback.data.split('_')[-1])
+    if await state1_order(index):
+        await callback.message.bot.send_message(chat_id=tg_id, text=f'Администратор подтвердил ваш заказ № {index}')
+        await callback.message.delete()
+        await callback.answer()
+    else:
+        await callback.message.answer('Ошибка!')
+        await callback.answer()
+
+@admin.callback_query(F.data.startswith('1_state_admin'))
+@admin.callback_query(F.data.startswith('del_'))
+async def delete_order_cmd(callback: CallbackQuery):
+    index = int(callback.data.split('_')[-2])
+    tg_id = int(callback.data.split('_')[-1])
+    if await delete_orders(index):
+        if callback.data.startswith('del_'):
+            await callback.answer('Заказ оклонен!')
+            await callback.message.bot.send_message(chat_id=tg_id, text=f'Ваш заказ № {index} откланен администратором')
+        elif callback.data.startswith('1_state_admin'):
+            await callback.message.bot.send_message(chat_id=tg_id, text=f'Администратор подтвердил ваш заказ № {index}')
+        try:
+            order = await ordstate_1()
+            user = await tg_id_username(order[0][1])
+            pos = '\n'.join([f'{k}: {v} шт.' for k, v in order[0][3].items()])
+            await callback.message.edit_text(f'Новый заказ от {user[1]}\n\n{order[0][2]}\n\n{pos}\n\n💸 ОБЩАЯ СТОИМОСТЬ:   {order[0][4]}   RUB\n\n♻️СТАТУС ОПЛАТЫ: {"✅" if order[0][5] else "❌"}', reply_markup=await state1_admin(order[0][0], user[0], len(order)))
+        except IndexError as ex:
+            await callback.message.edit_text('Состояния заказов', reply_markup=await admin_orders())
+            print(ex)
+    else:
+        await callback.message('Ошибка!')
+
 @admin.message(F.text.endswith('Пользователи'))
 async def settings_admin(message: Message):
     if await users():
         await message.answer(text='👑 Пользователи', reply_markup=await users_inline_buttons())
     else:
         await message.answer('Пользователи отсутствуют')
+
+
+
